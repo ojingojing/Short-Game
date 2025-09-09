@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections;
 
-public enum Evade_Direction { back = 0, left = 1, right = 2 }
+//public enum Evade_Direction { back = 0, left = 1, right = 2 }
 
 public class PlayerController : MonoBehaviour
 {
@@ -13,7 +13,7 @@ public class PlayerController : MonoBehaviour
     public float evade_distance = 2f;
 
     public float edge_hold_time = 0.06f;
-    public float evade_cooldown = 0.2f;
+    public float evade_cooldown = 0.15f;
 
     public float max_attack_charge_time = 0.8f;   // max charge time
 	public float charge_damage_factor = 1.0f;     // +100% when fully charged
@@ -53,6 +53,11 @@ public class PlayerController : MonoBehaviour
             if (is_evading)
             {
                 //Debug.Log("[Evade] ignored: already evading");
+                return;
+            }
+
+            if (is_attacking)
+            {
                 return;
             }
 
@@ -117,18 +122,18 @@ public class PlayerController : MonoBehaviour
         switch (direction)
         {
             case Evade_Direction.back:
-                target.x = start.x - evade_distance;
-                target.y = start.y;
+                target.x = start.x;
+                target.y = start.y - evade_distance;
                 break;
 
             case Evade_Direction.left:
-                target.x = start.x;
-                target.y = start.y + evade_distance;   
+                target.x = start.x - evade_distance;
+                target.y = start.y;   
                 break;
 
             case Evade_Direction.right:
-                target.x = start.x;
-                target.y = start.y - evade_distance;   
+                target.x = start.x + evade_distance;
+                target.y = start.y;   
                 break;
         }
 
@@ -187,7 +192,7 @@ public class PlayerController : MonoBehaviour
 
 		// forward (+X) then return, using same speed and same distance as evade
 		Vector3 start = transform.position;
-		Vector3 target = new Vector3(start.x + evade_distance, start.y, start.z);
+		Vector3 target = new Vector3(start.x, start.y + evade_distance, start.z);
 
 		// TODO: trigger attack start animation (wind-up depends on charge_ratio if desired)
 
@@ -196,27 +201,21 @@ public class PlayerController : MonoBehaviour
 		while ((transform.position - target).sqrMagnitude > 0.000001f)
 		{
 			float step = player_evade_speed * Time.deltaTime; // same speed as evade
-			float new_x = Mathf.MoveTowards(transform.position.x, target.x, step);
-			transform.position = new Vector3(new_x, transform.position.y, transform.position.z);
+			float new_y = Mathf.MoveTowards(transform.position.y, target.y, step);
+			transform.position = new Vector3(transform.position.x, new_y, transform.position.z);
 
 			timeout += Time.deltaTime;
 			if (timeout > 1.0f) break;
 			yield return null;
 		}
 
-		// TODO: enable hitbox here; apply final_damage to enemy on contact
-		// Example hook:
-		// AttackHitbox.Enable(final_damage);
-		// yield return new WaitForSeconds(hit_active_time);
-		// AttackHitbox.Disable();
-
 		// return to start
 		timeout = 0f;
 		while ((transform.position - start).sqrMagnitude > 0.000001f)
 		{
 			float step = player_evade_speed * Time.deltaTime; // same speed
-			float new_x = Mathf.MoveTowards(transform.position.x, start.x, step);
-			transform.position = new Vector3(new_x, transform.position.y, transform.position.z);
+			float new_y = Mathf.MoveTowards(transform.position.y, start.y, step);
+			transform.position = new Vector3(transform.position.x, new_y, transform.position.z);
 
 			timeout += Time.deltaTime;
 			if (timeout > 1.0f) break;
