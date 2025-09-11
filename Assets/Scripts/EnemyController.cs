@@ -21,7 +21,11 @@ public class EnemyController : MonoBehaviour
 
     private float evade_time = 0f;
 
-    private float evade_cooldown = 5f;
+    private float evade_distance = 2f;
+
+    private float evade_cooldown = 0f;
+
+    private int evade_direction = 0;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -36,16 +40,23 @@ public class EnemyController : MonoBehaviour
 
         if (evade_cooldown == 0)
         {
-            float random = Random.Range(3.0f,6.0f);
+            float random = Random.Range(1.0f,3.0f);
 
             //Debug.Log(random);
 
             evade_cooldown = random;
         }
-        else if (this.evade_time >= evade_cooldown)
+
+        if (evade_direction == 0)
+        {
+            evade_direction = Random.Range(1,4);
+        }
+
+        else if (this.evade_time >= evade_cooldown && !is_evading)
         {
             is_evading = true;
-            StartCoroutine(EvadeInChosenDirection());
+            StartCoroutine(EvadeInChosenDirection(evade_direction));
+            //Debug.Log(evade_direction);
             this.evade_time = 0;
         }
 
@@ -57,13 +68,68 @@ public class EnemyController : MonoBehaviour
         // }
     }
 
-    IEnumerator EvadeInChosenDirection()
+    IEnumerator EvadeInChosenDirection(int direction)
     {
-        Debug.Log("Evaded after : " + evade_cooldown + " seconds.");
+        is_evading = true;
 
-        yield return new WaitForSeconds(0.01f);
+        Vector3 start = transform.position;
+        Vector3 target = start;
+
+        switch (direction)
+        {
+            case 1:
+                target.x = start.x;
+                target.y = start.y + evade_distance;
+                break;
+            case 2:
+                target.x = start.x - evade_distance;
+                target.y = start.y;
+                break;
+            case 3:
+                target.x = start.x + evade_distance;
+                target.y = start.y;
+                break;
+        }
+
+        Debug.Log("Evaded to " + direction +" after : " + evade_cooldown + " seconds.");
+
+        float timeout = 0f;
+        while ((transform.position - target).sqrMagnitude > 0.000001f)
+        {
+            float step = enemy_evade_speed * Time.deltaTime;
+            Vector2 cur2 = new Vector2(transform.position.x, transform.position.y);
+            Vector2 tar2 = new Vector2(target.x, target.y);
+            Vector2 next2 = Vector2.MoveTowards(cur2, tar2, step);
+            transform.position = new Vector3(next2.x, next2.y, transform.position.z);
+
+            timeout += Time.deltaTime;
+            if (timeout > 1.0f) break;
+            yield return null;
+        }
+
+        // wait at the end for a while
+        if (enemy_edge_hold_time > 0f) yield return new WaitForSeconds(enemy_edge_hold_time);
+
+        // return
+        timeout = 0f;
+        while ((transform.position - start).sqrMagnitude > 0.000001f)
+        {
+            float step = enemy_evade_speed * Time.deltaTime;
+            Vector2 cur2 = new Vector2(transform.position.x, transform.position.y);
+            Vector2 start2 = new Vector2(start.x, start.y);
+            Vector2 next2 = Vector2.MoveTowards(cur2, start2, step);
+            transform.position = new Vector3(next2.x, next2.y, transform.position.z);
+
+            timeout += Time.deltaTime;
+            if (timeout > 1.0f) break; 
+            yield return null;
+        }
+
+        // Cooldown lockout (optional)
+        if (evade_cooldown > 0f) yield return new WaitForSeconds(evade_cooldown);
 
         is_evading = false;
         evade_cooldown = 0;
+        evade_direction= 0;
     }
 }
