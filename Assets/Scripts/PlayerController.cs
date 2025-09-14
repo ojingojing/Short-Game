@@ -39,10 +39,15 @@ public class PlayerController : MonoBehaviour
     //public float evade_total_lockout = 0f; 
     public bool CanEvadeNow => evade_cooldown_remaining <= 0f;
 
+    public Sprite idle_sprite;
+    public Sprite evade_sprite;
+    public Sprite crouch_sprite;
+    private SpriteRenderer sprite_renderer;
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-
+        sprite_renderer = GetComponent<SpriteRenderer>();
     }
 
     // Update is called once per frame
@@ -96,6 +101,11 @@ public class PlayerController : MonoBehaviour
         Vector3 start = transform.position;
         Vector3 target = start;
 
+        sprite_renderer.sprite = evade_sprite;
+        if (direction == Evade_Direction.left)  sprite_renderer.flipX = true;
+        if (direction == Evade_Direction.right) sprite_renderer.flipX = false;
+        if (direction == Evade_Direction.back) sprite_renderer.sprite = crouch_sprite;
+
         switch (direction)
         {
             case Evade_Direction.back:
@@ -118,17 +128,14 @@ public class PlayerController : MonoBehaviour
         float t_go = evade_distance / speed;
         float t_back = t_go;
 
-        float hold = Mathf.Max(0f, edge_hold_time);     // 끝에서 머무름(오직 이 값만 사용)
-        float base_cd = Mathf.Max(0f, evade_cooldown);  // 기본 쿨타임(원한다면 0으로도 운용 가능)
+        float hold = Mathf.Max(0f, edge_hold_time);     
+        float base_cd = Mathf.Max(0f, evade_cooldown);  
 
-        // 총 잠김시간(게이지 총 길이)
         evade_total_lockout = t_go + hold + t_back + base_cd;
 
-        // 게이지는 이동 시작과 동시에 0으로 보이도록: remaining=total에서 출발
         float end_time = Time.time + evade_total_lockout;
         evade_cooldown_remaining = evade_total_lockout;
 
-        // 1) 목표 지점까지 이동 (프레임마다 remaining 갱신)
         while ((transform.position - target).sqrMagnitude > 0.000001f)
         {
             float step = speed * Time.deltaTime;
@@ -141,7 +148,6 @@ public class PlayerController : MonoBehaviour
             yield return null;
         }
 
-        // 2) 끝에서 edge_hold_time 만큼만 머무름 (오직 이 값만, 더 길게 잡지 않음)
         if (hold > 0f)
         {
             float hold_end = Time.time + hold;
@@ -152,7 +158,6 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        // 3) 시작 지점으로 복귀
         while ((transform.position - start).sqrMagnitude > 0.000001f)
         {
             float step = speed * Time.deltaTime;
@@ -165,16 +170,16 @@ public class PlayerController : MonoBehaviour
             yield return null;
         }
 
-        // 4) 남은 기본 쿨타임(있다면)까지 잠금 유지
+        sprite_renderer.sprite = idle_sprite;
+        sprite_renderer.flipX = false;
+
         while (Time.time < end_time)
         {
             evade_cooldown_remaining = Mathf.Max(0f, end_time - Time.time);
             yield return null;
         }
 
-        // 종료: 완전히 0으로
         evade_cooldown_remaining = 0f;
-
         is_evading = false;
     }
 
@@ -297,7 +302,23 @@ public class PlayerController : MonoBehaviour
         evade_cooldown_remaining = 0f;
         is_attacking = false;
     }
-}
 
-#endregion
+    #endregion
+
+    #region Collision
+
+    void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (is_attacking == true && collision.gameObject.CompareTag("Enemy"))
+        {
+            EnemyController enemy = collision.gameObject.GetComponent<EnemyController>();
+            if (enemy != null)
+            {
+                enemy.TakeDamage(player_dmg);
+            }
+        }
+    }
+
+    #endregion
+}
 

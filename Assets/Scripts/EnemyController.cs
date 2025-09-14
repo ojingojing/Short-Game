@@ -132,4 +132,10 @@ public class EnemyController : MonoBehaviour
         evade_cooldown = 0;
         evade_direction= 0;
     }
+
+    public void TakeDamage(float dmg)
+    {
+        enemy_health -= dmg;
+        Debug.Log("Got hit by player receiving : " + dmg);
+    }
 }
