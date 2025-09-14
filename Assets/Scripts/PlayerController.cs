@@ -15,6 +15,8 @@ public class PlayerController : MonoBehaviour
     public float edge_hold_time = 0.06f;
     public float evade_cooldown = 0.15f;
 
+    public float attack_cooldown_multiplier = 1.5f;
+
     public float max_attack_charge_time = 0.8f;   // max charge time
 	public float charge_damage_factor = 1.0f;     // +100% when fully charged
 	public float attack_cooldown = 0.25f;
@@ -34,7 +36,7 @@ public class PlayerController : MonoBehaviour
     public float evade_cooldown_remaining = 0f;
     public bool IsEvadeOnCoolDown => evade_cooldown_remaining > 0f;
 
-    public float evade_total_lockout = 0f; 
+    //public float evade_total_lockout = 0f; 
     public bool CanEvadeNow => evade_cooldown_remaining <= 0f;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -221,54 +223,80 @@ public class PlayerController : MonoBehaviour
     public void TryAttack(float charge_ratio)
 	{
 		if (is_evading || is_attacking) return;
+        if (evade_cooldown_remaining > 0f) return;
 		if (running_attack != null) StopCoroutine(running_attack);
 		running_attack = StartCoroutine(AttackRoutine(charge_ratio));
 	}
 
 	IEnumerator AttackRoutine(float charge_ratio)
-	{
-		is_attacking = true;
+    {
+        is_attacking = true;
 
-		// compute damage with charge (example scaling)
-		float final_damage = player_dmg * (1f + charge_ratio * charge_damage_factor);
+        // compute damage with charge (example scaling) – unchanged
+        float final_damage = player_dmg * (1f + charge_ratio * charge_damage_factor);
 
-		// forward (+X) then return, using same speed and same distance as evade
-		Vector3 start = transform.position;
-		Vector3 target = new Vector3(start.x, start.y + evade_distance, start.z);
+        // same travel pattern as evade (forward then return)
+        Vector3 start = transform.position;
+        Vector3 target = new Vector3(start.x, start.y + evade_distance, start.z);
 
-		// TODO: trigger attack start animation (wind-up depends on charge_ratio if desired)
+        // compute motion times like evade does
+        float speed = Mathf.Max(0.0001f, player_evade_speed);
+        float t_go = evade_distance / speed;
+        float t_back = t_go;
 
-		// go forward
-		float timeout = 0f;
-		while ((transform.position - target).sqrMagnitude > 0.000001f)
-		{
-			float step = player_evade_speed * Time.deltaTime; // same speed as evade
-			float new_y = Mathf.MoveTowards(transform.position.y, target.y, step);
-			transform.position = new Vector3(transform.position.x, new_y, transform.position.z);
+        // base cooldown for attack = 1.5x of evade cooldown
+        float base_cd_attack = Mathf.Max(0f, evade_cooldown * attack_cooldown_multiplier);
 
-			timeout += Time.deltaTime;
-			if (timeout > 1.0f) break;
-			yield return null;
-		}
+        // total lockout for attack (motion + base cooldown)
+        float attack_total_lockout = t_go + t_back + base_cd_attack;
 
-		// return to start
-		timeout = 0f;
-		while ((transform.position - start).sqrMagnitude > 0.000001f)
-		{
-			float step = player_evade_speed * Time.deltaTime; // same speed
-			float new_y = Mathf.MoveTowards(transform.position.y, start.y, step);
-			transform.position = new Vector3(transform.position.x, new_y, transform.position.z);
+        // start shared lock immediately (so evade also blocked)
+        float end_time = Time.time + attack_total_lockout;
+        evade_cooldown_remaining = attack_total_lockout;
 
-			timeout += Time.deltaTime;
-			if (timeout > 1.0f) break;
-			yield return null;
-		}
+        // go forward
+        float timeout = 0f;
+        while ((transform.position - target).sqrMagnitude > 0.000001f)
+        {
+            float step = speed * Time.deltaTime;
+            float new_y = Mathf.MoveTowards(transform.position.y, target.y, step);
+            transform.position = new Vector3(transform.position.x, new_y, transform.position.z);
 
-		// cooldown after attack
-		if (attack_cooldown > 0f) yield return new WaitForSeconds(attack_cooldown);
+            // update shared lock
+            evade_cooldown_remaining = Mathf.Max(0f, end_time - Time.time);
 
-		is_attacking = false;
-	}
+            timeout += Time.deltaTime;
+            if (timeout > 1.0f) break;
+            yield return null;
+        }
+
+        // return to start
+        timeout = 0f;
+        while ((transform.position - start).sqrMagnitude > 0.000001f)
+        {
+            float step = speed * Time.deltaTime;
+            float new_y = Mathf.MoveTowards(transform.position.y, start.y, step);
+            transform.position = new Vector3(transform.position.x, new_y, transform.position.z);
+
+            // update shared lock
+            evade_cooldown_remaining = Mathf.Max(0f, end_time - Time.time);
+
+            timeout += Time.deltaTime;
+            if (timeout > 1.0f) break;
+            yield return null;
+        }
+
+        // keep lock for the remaining base cooldown window
+        while (Time.time < end_time)
+        {
+            evade_cooldown_remaining = Mathf.Max(0f, end_time - Time.time);
+            yield return null;
+        }
+
+        // release
+        evade_cooldown_remaining = 0f;
+        is_attacking = false;
+    }
 }
 
 #endregion
