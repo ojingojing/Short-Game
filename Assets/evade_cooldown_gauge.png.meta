@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      evade_cooldown_gauge_0: 6680551649415811557
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

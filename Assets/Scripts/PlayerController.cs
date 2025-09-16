@@ -42,6 +42,8 @@ public class PlayerController : MonoBehaviour
     public Sprite idle_sprite;
     public Sprite evade_sprite;
     public Sprite crouch_sprite;
+
+    public Sprite attack_sprite;
     private SpriteRenderer sprite_renderer;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -101,6 +103,7 @@ public class PlayerController : MonoBehaviour
         Vector3 start = transform.position;
         Vector3 target = start;
 
+        //change sprite to evade sprite based on dir
         sprite_renderer.sprite = evade_sprite;
         if (direction == Evade_Direction.left)  sprite_renderer.flipX = true;
         if (direction == Evade_Direction.right) sprite_renderer.flipX = false;
@@ -170,6 +173,8 @@ public class PlayerController : MonoBehaviour
             yield return null;
         }
 
+
+        // return to normal sprite
         sprite_renderer.sprite = idle_sprite;
         sprite_renderer.flipX = false;
 
@@ -237,6 +242,10 @@ public class PlayerController : MonoBehaviour
     {
         is_attacking = true;
 
+        sprite_renderer.sprite = attack_sprite;
+
+        //transform.localScale = new Vector3(0.2f,0.2f,1f); // bigger size for smaller img
+
         // compute damage with charge (example scaling) – unchanged
         float final_damage = player_dmg * (1f + charge_ratio * charge_damage_factor);
 
@@ -290,6 +299,9 @@ public class PlayerController : MonoBehaviour
             if (timeout > 1.0f) break;
             yield return null;
         }
+
+        sprite_renderer.sprite = idle_sprite;
+        //transform.localScale = new Vector3(0.15f,0.15f,1f);
 
         // keep lock for the remaining base cooldown window
         while (Time.time < end_time)
